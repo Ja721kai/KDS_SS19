@@ -22,22 +22,29 @@ ARCHITECTURE struktur OF hex4x7seg IS
 BEGIN
 
    -- Modulo-2**14-Zaehler als Prozess
-
+	 -- > siehe KDS1.pdf Folie 65 (Design-Muster)  / Frequenz-Teiler??
    
+	
    -- Modulo-4-Zaehler als Prozess
+	 -- > siehe KDS1.pdf Folie 65 (Design-Muster)
 
 
    -- 1-aus-4-Dekoder als selektierte Signalzuweisung
+	 -- > siehe KDS1.pdf Folie 53 (Entwurfsmuster)
 
 
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
+	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
 
    
    -- 7-aus-4-Dekoder als selektierte Signalzuweisung
-   
-   
+    -- > siehe KDS1.pdf Folie 53 (Entwurfsmuster)
+	
    
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
+	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
 
 
+
+-- Frequenzteiler? Je nachdem wo benötigt oder schon vorhanden: siehe KDS1.pdf Folie 66 (Design-Muster)
 END struktur;
