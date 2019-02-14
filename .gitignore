@@ -1,3 +1,11 @@
 *.bit
+
 *.pdf
+
 *.ucf
+
+*.xise
+_xmsgs/
+*.gise
+*.html
+*/iseconfig/
