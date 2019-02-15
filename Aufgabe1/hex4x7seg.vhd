@@ -18,6 +18,8 @@ END hex4x7seg;
 
 ARCHITECTURE struktur OF hex4x7seg IS
   -- hier sind benutzerdefinierte Konstanten und Signale einzutragen
+  signal t: std_logic;
+  signal mod4: std_logic_vector(1 DOWNTO 0);
 
 BEGIN
 
@@ -30,19 +32,24 @@ BEGIN
 
 
    -- 1-aus-4-Dekoder als selektierte Signalzuweisung
-	 -- > siehe KDS1.pdf Folie 53 (Entwurfsmuster)
+	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
 
 
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
-	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
-
-   
+	 -- > siehe KDS1.pdf Folie 51 (Entwurfsmuster)
+	with mod4 select
+		t <=  dpin(0) when "00",
+				dpin(1) when "01",
+				dpin(2) when others; -- da dpin(2) und dpin(3) identisch
+		dp <= not t; 
+	 
+	 
    -- 7-aus-4-Dekoder als selektierte Signalzuweisung
-    -- > siehe KDS1.pdf Folie 53 (Entwurfsmuster)
+    -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
 	
    
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
-	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
+	 -- > siehe KDS1.pdf Folie 51 (Entwurfsmuster)
 
 
 
