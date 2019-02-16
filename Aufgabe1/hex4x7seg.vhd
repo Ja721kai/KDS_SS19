@@ -72,11 +72,15 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 
    -- 1-aus-4-Dekoder als selektierte Signalzuweisung
 	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
-	 with mod4 select
-		an <= "1110" when "00",
-				"1101" when "01",
-				"1011" when "10",
-				"0111" when others;
+	 with mod4 & rst select
+		an <= "1110" when "000",
+				"1101" when "010",
+				"1011" when "100",
+				"0111" when "110",
+				"1111" when others;
+		-- vielleicht lieber so implementieren: ???
+		-- an <= "1111" when rst=RSTDEF;
+		-- an <= "1111" when swrst=RSTDEF
 				
 
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
