@@ -56,7 +56,13 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 		if rst=RSTDEF then
 			mod4 <= "00";
 		elsif rising_edge(clk) then
-			mod4 <= mod4 + strb;
+			if mod4="11" then
+				if strb='1' then
+					mod4 <= "00";
+				end if;
+			else
+				mod4 <= mod4 + strb;
+			end if;
 			if swrst=RSTDEF then
 				mod4 <= "00";
 			end if;
