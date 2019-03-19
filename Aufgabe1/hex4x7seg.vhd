@@ -28,6 +28,8 @@ ARCHITECTURE struktur OF hex4x7seg IS
   
   signal seg_sel: std_logic_vector(3 downto 0);  -- für 1-aus-4-4Bit-Multiplexer & Input für 7-aus-4-Decoder
   
+  signal temp: std_logic_vector( 3 DOWNTO 0);
+  
 
 BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 
@@ -72,16 +74,12 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 
    -- 1-aus-4-Dekoder als selektierte Signalzuweisung
 	 -- > siehe KDS1.pdf Folie 52 (Entwurfsmuster)
-	 with mod4 & rst select
-		an <= "1110" when "000",
-				"1101" when "010",
-				"1011" when "100",
-				"0111" when "110",
-				"1111" when others;
-		-- vielleicht lieber so implementieren: ???
-		-- an <= "1111" when rst=RSTDEF;
-		-- an <= "1111" when swrst=RSTDEF
-				
+	 with mod4 select
+		temp <= "1110" when "00",
+			  	"1101" when "01",
+				"1011" when "10",
+				"0111" when others;
+		an <= "1111" when rst=RSTDEF else temp;	
 
    -- 1-aus-4-Multiplexer als selektierte Signalzuweisung
 	 -- > siehe KDS1.pdf Folie 51 (Entwurfsmuster)
