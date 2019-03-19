@@ -17,11 +17,26 @@ ENTITY hex4x7seg IS
 END hex4x7seg;
 
 ARCHITECTURE struktur OF hex4x7seg IS
-  -- hier sind benutzerdefinierte Konstanten und Signale einzutragen
+
+  COMPONENT frequenzteiler IS
+		GENERIC(RSTDEF:  std_logic);
+		PORT(rst:	IN  std_logic;
+			  clk:	IN  std_logic;
+			  strb:	OUT std_logic);
+	END COMPONENT;
+	
+	COMPONENT mod4zaehler IS
+		GENERIC(RSTDEF:  std_logic);
+		PORT(rst:	IN  std_logic;
+			  swrst: IN  std_logic;
+			  clk:	IN  std_logic;
+			  strb:	IN  std_logic;
+			  mod4:  OUT std_logic_vector(1 downto 0));
+	END COMPONENT;
+	
+	  -- hier sind benutzerdefinierte Konstanten und Signale einzutragen
   signal t: std_logic;  -- für 1 aus 4 dpin multiplexer
   
-  constant N: natural := 2**14;  -- für mod 2**14 Zähler
-  signal cnt: integer range 0 to N-1;  -- mod 2**14 counter
   signal strb: std_logic;  -- Startsignal für mod4 Zähler
   
   signal mod4: std_logic_vector(1 downto 0);  -- mod4 Zähler
@@ -33,41 +48,22 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 
    -- Modulo-2**14-Zaehler als Prozess
 	 -- > siehe KDS1.pdf Folie 65 (Design-Muster) / Frequenz-Teiler Folie 66
-	 process (rst, clk) is
-	 begin
-		if rst=RSTDEF then
-			cnt <= 0;
-			strb <= '0';
-		elsif rising_edge(clk) then
-			strb <= '0';
-			if cnt=N-1 then
-				cnt <= 0;
-				strb <= '1';
-			else
-				cnt <= cnt + 1;
-			end if;
-		end if;
-	 end process;
+	 u1:frequenzteiler
+	 GENERIC MAP(RSTDEF => RSTDEF)
+	 PORT MAP(rst	=> rst,
+				 clk	=> clk,
+				 strb => strb);
 	
 	
    -- Modulo-4-Zaehler als Prozess
 	 -- > siehe KDS1.pdf Folie 65 (Design-Muster) 
-	 process (rst, swrst, clk) begin
-		if rst=RSTDEF then
-			mod4 <= "00";
-		elsif rising_edge(clk) then
-			if mod4="11" then
-				if strb='1' then
-					mod4 <= "00";
-				end if;
-			else
-				mod4 <= mod4 + strb;
-			end if;
-			if swrst=RSTDEF then
-				mod4 <= "00";
-			end if;
-		end if;
-	 end process;
+	 u2:mod4zaehler
+	 GENERIC MAP(RSTDEF => RSTDEF)
+	 PORT MAP(rst	 => rst,
+				 swrst => swrst,
+				 clk	 => clk,
+				 strb  => strb,
+				 mod4  => mod4);
 
 
    -- 1-aus-4-Dekoder als selektierte Signalzuweisung
