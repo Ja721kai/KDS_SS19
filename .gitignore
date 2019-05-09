@@ -9,3 +9,8 @@ _xmsgs/
 *.gise
 *.html
 */iseconfig/
+*Modelsim*
+*/Synthese/*
+*/transcript
+*/vsim.wlf
+*/work/*

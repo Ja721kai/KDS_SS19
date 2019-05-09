@@ -18,15 +18,15 @@ END hex4x7seg;
 
 ARCHITECTURE struktur OF hex4x7seg IS
   -- hier sind benutzerdefinierte Konstanten und Signale einzutragen
-  signal t: std_logic;  -- für 1 aus 4 dpin multiplexer
+  signal t: std_logic;  								-- für 1 aus 4 dpin multiplexer
   
-  constant N: natural := 2**14;  -- für mod 2**14 Zähler
-  signal cnt: integer range 0 to N-1;  -- mod 2**14 counter
-  signal strb: std_logic;  -- Startsignal für mod4 Zähler
+  constant N: natural := 2**14;  					-- für mod 2**14 Zähler
+  signal cnt: integer range 0 to N-1;  			-- mod 2**14 counter
+  signal strb: std_logic;  							-- Startsignal für mod4 Zähler
   
-  signal mod4: std_logic_vector(1 downto 0);  -- mod4 Zähler
+  signal mod4: std_logic_vector(1 downto 0); 	-- mod4 Zähler
   
-  signal seg_sel: std_logic_vector(3 downto 0);  -- für 1-aus-4-4Bit-Multiplexer & Input für 7-aus-4-Decoder
+  signal seg_sel: std_logic_vector(3 downto 0); -- für 1-aus-4-4Bit-Multiplexer & Input für 7-aus-4-Decoder
   
 
 BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
@@ -52,7 +52,8 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 	
    -- Modulo-4-Zaehler als Prozess
 	 -- > siehe KDS1.pdf Folie 65 (Design-Muster) 
-	 process (rst, swrst, clk) begin
+	 --process (rst, swrst, clk) begin
+	 process (rst, clk) begin
 		if rst=RSTDEF then
 			mod4 <= "00";
 		elsif rising_edge(clk) then
@@ -63,9 +64,9 @@ BEGIN -- en wird als '1' angenommen, siehe Portmap aufgabe1.vhd
 			else
 				mod4 <= mod4 + strb;
 			end if;
-			if swrst=RSTDEF then
-				mod4 <= "00";
-			end if;
+			--if swrst=RSTDEF then
+				--mod4 <= "00";
+			--end if;
 		end if;
 	 end process;
 
