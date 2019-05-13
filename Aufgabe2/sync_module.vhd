@@ -90,8 +90,5 @@ BEGIN
 			 dout  => OPEN,
 			 redge => inc,
 			 fedge => OPEN);
-				
-			
-				
-			
+
 END struktur;
