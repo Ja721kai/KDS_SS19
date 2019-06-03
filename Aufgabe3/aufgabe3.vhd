@@ -33,13 +33,9 @@ ARCHITECTURE structure OF aufgabe3 IS
            clk:   IN  std_logic;  -- clock, risign edge
            swrst: IN  std_logic;  -- software reset, active RSTDEF
            BTN0:  IN  std_logic;  -- push button -> load
-           BTN1:  IN  std_logic;  -- push button -> dec
-           BTN2:  IN  std_logic;  -- push button -> inc
-           load:  OUT std_logic;  -- load,      high active
-           dec:   OUT std_logic;  -- decrement, high active
-           inc:   OUT std_logic); -- increment, high active
+           load:  OUT std_logic);  -- load,      high active
    END COMPONENT;
-      
+
    COMPONENT hex4x7seg IS
       GENERIC(RSTDEF:  std_logic);
       PORT(rst:   IN  std_logic;                       -- reset,           active RSTDEF
@@ -57,7 +53,7 @@ ARCHITECTURE structure OF aufgabe3 IS
 
    SIGNAL strt:   std_logic;
    SIGNAL res:    std_logic_vector(43 DOWNTO 0);
-   
+
 BEGIN
 
    u1: sync_module
@@ -66,12 +62,8 @@ BEGIN
             clk   => clk,
             swrst => swrst,
             BTN0  => BTN0,
-            BTN1  => '0',
-            BTN2  => '0',
-            load  => strt,
-            dec   => OPEN,
-            inc   => OPEN);
-               
+            load  => strt);
+
    u2: core
    GENERIC MAP(RSTDEF => RSTDEF)
    PORT MAP(rst   => rst,
@@ -81,7 +73,7 @@ BEGIN
             sw    => sw,
             res   => res,
             done  => LD0);
-
+ 
    u3: hex4x7seg
    GENERIC MAP(RSTDEF => RSTDEF)
    PORT MAP(rst   => rst,
@@ -93,5 +85,5 @@ BEGIN
             an    => an,
             dp    => dp,
             seg   => seg);
-   
+
 END structure;

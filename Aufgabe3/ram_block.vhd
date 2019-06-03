@@ -16,7 +16,7 @@ END ram_block;
 library unisim;
 use unisim.vcomponents.all;
 
-architecture low_level_definition of ram_block is
+	architecture low_level_definition of ram_block is
 
 begin
 
