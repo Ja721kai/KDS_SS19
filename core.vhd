@@ -2,9 +2,10 @@
 LIBRARY ieee, unisim;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
-USE ieee.std_logic_arith.ALL;
+--USE ieee.std_logic_arith.ALL;
 USE unisim.VComponents.ALL;
 USE ieee.std_logic_unsigned.ALL;
+
 
 ENTITY core IS
    GENERIC(RSTDEF: std_logic := '0');
@@ -51,40 +52,40 @@ ARCHITECTURE structure OF core IS
 				 B : IN STD_LOGIC_VECTOR (17 DOWNTO 0));
 	END COMPONENT;
 	
-	type TState IS (SPIN, INCR, NOP, FIN);
+	-- state machine for outer loop and scalar multiplication
+	type TState IS (SPIN, INCR, NOP, FIN, WRBACK);  
 	SIGNAL stwrk_state: TState := SPIN;
 	SIGNAL lp_state: TState := SPIN;
 	
-	SIGNAL addra_ram: std_logic_VECTOR(9 DOWNTO 0);
-   SIGNAL addrb_ram: std_logic_VECTOR(9 DOWNTO 0);
-	SIGNAL douta_ram: std_logic_VECTOR(15 DOWNTO 0);
-	SIGNAL doutb_ram: std_logic_VECTOR(15 DOWNTO 0);
-	SIGNAL dina_ram:  std_logic_VECTOR(15 DOWNTO 0);
-	SIGNAL extdouta_ram: std_logic_VECTOR(17 DOWNTO 0);
-	SIGNAL extdoutb_ram: std_logic_VECTOR(17 DOWNTO 0);
-   SIGNAL en_ram:   std_logic;
-	SIGNAL en_add:   std_logic;	
-	SIGNAL en_write: std_logic;
+	-- RAM
+   SIGNAL addrb_ram: std_logic_VECTOR(9 DOWNTO 0);   -- address to read out from
+	SIGNAL doutb_ram: std_logic_VECTOR(15 DOWNTO 0);  -- register to hold read value
+	SIGNAL counter_ram: std_logic_vector(9 DOWNTO 0); -- address to write into RAM
+	SIGNAL en_write: std_logic;							  -- write enable
+	SIGNAL en_ram: std_logic;								  -- enable Port A
+	-- no read enable for RAM, read enable is set to '1' (Port B)/ '0' (Port A) permanently
 	
-	 ------------------------
-	SIGNAL addra_rom: std_logic_VECTOR(9 DOWNTO 0);
-   SIGNAL addrb_rom: std_logic_VECTOR(9 DOWNTO 0);
-	SIGNAL douta_rom: std_logic_VECTOR(15 DOWNTO 0);
-	SIGNAL doutb_rom: std_logic_VECTOR(15 DOWNTO 0);
-	SIGNAL extdouta_rom: std_logic_VECTOR(17 DOWNTO 0);
-	SIGNAL extdoutb_rom: std_logic_VECTOR(17 DOWNTO 0);
-   SIGNAL en_rom:   std_logic;
-	 ------------------------
+	-- ROM
+	SIGNAL addra_rom: std_logic_VECTOR(9 DOWNTO 0);     -- read from ROM 0x0000 to 0x00FF
+   SIGNAL addrb_rom: std_logic_VECTOR(9 DOWNTO 0);		 -- read from ROM 0x0100 to 0x01FF
+	SIGNAL douta_rom: std_logic_VECTOR(15 DOWNTO 0);	 -- holds value from read on Matrix A
+	SIGNAL doutb_rom: std_logic_VECTOR(15 DOWNTO 0);    -- holds value from read on Matrix B
+	SIGNAL extdouta_rom: std_logic_VECTOR(17 DOWNTO 0); -- extended value (16 to 18 bits)
+	SIGNAL extdoutb_rom: std_logic_VECTOR(17 DOWNTO 0); -- extended value (16 to 18 bits)
+   SIGNAL en_rom:   std_logic;								 -- read enable
+	
+	-- akkumulator variables
+	SIGNAL en_add:   std_logic;						   -- add enable
+	SIGNAL multres: std_logic_vector(35 DOWNTO 0);  -- holds multiplication result which is accumulated on add_res
+	SIGNAL add_res: std_logic_vector(43 DOWNTO 0);  -- holds accumulated value of scalar multiplication
 	 
-	SIGNAL res: std_logic_vector(43 DOWNTO 0);
-	SIGNAL multres: std_logic_vector(35 DOWNTO 0);  -- 36 bits da 18 * 18 bits
-	SIGNAL add_res: std_logic_vector(43 DOWNTO 0);
-	SIGNAL counter_ram: std_logic_vector(9 DOWNTO 0);
-	SIGNAL counter_rom_a: std_logic_vector(9 DOWNTO 0);
-	SIGNAL counter_rom_b: std_logic_vector(9 DOWNTO 0);
-	SIGNAL start: std_logic;
-	SIGNAL done: std_logic;
-	constant N: natural := 16;
+	-- scalar multiplication and outer loop
+	SIGNAL res: std_logic_vector(43 DOWNTO 0);  				-- holds addition result of scalar multiplication
+	SIGNAL counter_rom_a: std_logic_vector(9 DOWNTO 0);   -- index from 0 to 15 for Matrix A
+	SIGNAL counter_rom_b: std_logic_vector(9 DOWNTO 0);   -- index from 0 to 15 for Matrix B
+	SIGNAL start: std_logic;										-- handshake signal for scalar multiplication
+	SIGNAL done: std_logic;											-- handshake signal for outer loop
+	constant N: natural := 16;										-- matrix size
 	
 	
 
@@ -92,7 +93,7 @@ BEGIN
 
 	rb: ram_block
 	PORT MAP(
-	  douta 	=> douta_ram,
+	  douta 	=> OPEN,
 	  doutb	=> doutb_ram,
 	  dina	=> res(15 DOWNTO 0),
 	  addra	=> counter_ram,
@@ -100,7 +101,7 @@ BEGIN
 	  clka	=> clk,
 	  clkb	=> clk,
 	  ena		=> en_ram,
-	  enb		=> en_ram,
+	  enb		=> '1',
 	  wea		=> en_write
 	);
 	
@@ -116,13 +117,9 @@ BEGIN
 	  enb		=> en_rom
 	);
 	
-	-- Vectorgröße erhöhen
-	-- rom
-	extdouta_rom <= SXT(douta_rom,18);
-	extdoutb_rom <= SXT(doutb_rom,18);
-	-- ram
-	extdouta_ram <= SXT(douta_ram,18);
-	extdoutb_ram <= SXT(doutb_ram,18);
+	-- Vektorgröße erhöhen
+	extdouta_rom <= "00" & douta_rom;
+	extdoutb_rom <= "00" & doutb_rom;
 	
 	--xapp463 entnommen
 	mult: MULT18X18
@@ -138,13 +135,15 @@ BEGIN
 		if rst = RSTDEF then
 			start <= '0';
 			rdy <= '0';
-			en_write <= '0';
+			--counter_ram <= (others => '0');
+			counter_rom_a <= (others => '0');     -- SINGLE PORT ADDRESS ROM A
+			counter_rom_b <= "0100000000";      -- SINGLE PORT ADDRESS ROM B
+			lp_state <= SPIN;
 		elsif rising_edge(clk) then
 			case lp_state is
 				when SPIN =>
-					en_write <= '0';
-					if strt = '1' then
-						counter_ram <= (others => '0');			-- ergebnismatrix zähler		
+					if strt = '1' then	
+						--counter_ram <= (others => '0');
 						counter_rom_a <= (others => '0');     -- SINGLE PORT ROM A
 						counter_rom_b <= "0100000000";      -- SINGLE PORT ROM B
 						start <= '1';
@@ -153,95 +152,118 @@ BEGIN
 					
 				when INCR =>
 				
-					en_write <= '0';
+					start <= '1';
+					lp_state <= FIN;
+					--en_write <= '0';
+					--en_ram <= '0';
+					--counter_ram <= counter_ram + '1';
 					if counter_rom_b(7 DOWNTO 0) + '1' = N then  -- Matrix B letzte Spalte?
-						counter_rom_b <= (others => '0');
+						counter_rom_b(7 DOWNTO 0) <= (others => '0');
 						if counter_rom_a + '1' = N then  -- 256 bereits ausgerechnet
-							counter_ram <= std_logic_vector(unsigned(counter_rom_a) * N + unsigned(counter_rom_b));
-							en_write <= '1';
+							start <= '0';
 							rdy <= '1';
 							lp_state <= SPIN;
 						else										
 							counter_rom_a <= counter_rom_a + '1';  -- nächste Zeile in Matrix A
-							start <= '1';
-							lp_state <= FIN;
 						end if;
 				   else
 						counter_rom_b <= counter_rom_b + '1';
-						start <= '1';
-						lp_state <= FIN;
+						
 					end if;
 				
 				when NOP =>
 					start <= '0';
 					if done = '1' then
-						counter_ram <= std_logic_vector(unsigned(counter_rom_a) * N + unsigned(counter_rom_b(7 DOWNTO 0)));
-						en_write <= '1';
+						--en_write <= '1';
+						--en_ram <= '1';
 						lp_state <= INCR;
 					end if;
 					
-				when FIN =>
+				when FIN =>  -- warte bis done = 0
+				start <= '0';
 					if done = '0' then
 						lp_state <= NOP;
 					end if;
+					
+				when WRBACK =>
+					
+					-- do nothing
 			
 			end case;
 		end if;
 	END PROCESS;
 			 
-	steuerwerk: PROCESS(rst, clk)
+	scalar_multiplication: PROCESS(rst, clk)
 	variable cnt: integer := 0;
 	BEGIN
 		if rst = RSTDEF then
 			stwrk_state <= SPIN;
 			en_rom <= '0';
+			en_write <= '0';
 			en_add <= '0';
 			done <= '0';
 			res <= (others => '0');
+			counter_ram <= (others => '0');
+			addra_rom <= (others => '0');
+			addrb_rom <= (others => '0');
+			cnt := 0;
 		elsif rising_edge(clk) then
 				case stwrk_state is
 					when SPIN =>
-					
+						en_rom <= '0';
+						en_add <= '0';
+						done <= '0';
 						if start = '1' then
-							res <= (others => '0');
+							--res <= (others => '0');
 							en_rom <= '1';
-							en_add <= '0';
-							addra_rom <= counter_rom_a;
+							--counter_ram <= (others => '0');
+							--en_add <= '1';
+							addra_rom <= "00" & counter_rom_a(3 DOWNTO 0) & "0000";
 							addrb_rom <= counter_rom_b;
 							done <= '0';
 							stwrk_state <= INCR;
-							
 						end if;
 					when INCR =>
-					
 						addra_rom <= addra_rom + "0000000001";  -- + 1, nächste Spalte in A
-						addrb_rom <= addrb_rom + "0000000010";  -- + N, nächste Zeile in B
+						addrb_rom <= addrb_rom + "0000010000";  -- + N, nächste Zeile in B
 						en_add <= '1';
 						cnt := cnt+1;
-						if cnt = N-1 then
-							stwrk_state <= FIN;
+						if cnt = N then
+							en_rom <= '0';
+							cnt := 0;
+							stwrk_state <= NOP;
 						end if;
 						
 					when NOP =>
 					
-						en_add <= '0';
 						stwrk_state <= FIN;
+						en_add <= '0';
 
 					when FIN =>
-						done <= '1';
+					
 						res <= add_res;
+						en_write <= '1';
+						en_ram <= '1';
+						stwrk_state <= WRBACK;
+						
+					when WRBACK =>
+						en_write <= '0';
+						en_ram <= '0';
+						counter_ram <= counter_ram + '1';
 						stwrk_state <= SPIN;
+						done <= '1';
+						
 				end case;
 		end if;
 	END PROCESS;
 	
-	display: PROCESS(rst, clk, sw)
+	display: PROCESS(rst, clk)  -- send value to 7 segment display, actually no process needed because there is no condition and no reset
 	BEGIN
-
-		en_ram <= '1';
-		addrb_ram <= "00" & sw;  -- read from RAM
-		dout <= doutb_ram;
-
+		if rising_edge(clk) then
+			addrb_ram <= "00" & sw;
+			dout <= doutb_ram;
+		end if;
+		
 	END PROCESS;
 	
 	
@@ -251,7 +273,7 @@ BEGIN
 			add_res <= (others => '0');
 		elsif rising_edge(clk) then
 			if en_add = '1' then
-				add_res <= add_res + SXT(multres, 44);
+				add_res <= add_res + ("00000000" & multres);
 			else
 				add_res <= (others => '0');
 			end if;
