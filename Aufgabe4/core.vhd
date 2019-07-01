@@ -257,14 +257,10 @@ BEGIN
 		end if;
 	END PROCESS;
 	
-	display: PROCESS(rst, clk)  -- send value to 7 segment display, actually no process needed because there is no condition and no reset
-	BEGIN
-		if rising_edge(clk) then
-			addrb_ram <= "00" & sw;
-			dout <= doutb_ram;
-		end if;
-		
-	END PROCESS;
+
+	addrb_ram <= "00" & sw;
+	dout <= doutb_ram;
+
 	
 	
 	addierer_akk: PROCESS(rst, clk)
