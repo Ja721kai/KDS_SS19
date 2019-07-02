@@ -191,18 +191,15 @@ BEGIN
 	END PROCESS;
 			 
 	scalar_multiplication: PROCESS(rst, clk)
-	variable cnt: integer := 0;
 	BEGIN
 		if rst = RSTDEF then
 			stwrk_state <= SPIN;
 			en_rom <= '0';
 			en_add <= '0';
 			done <= '0';
-			res <= (others => '0');  -- kürzer initialisieren und andere variable nutzen für add_res?
-			--counter_ram <= (others => '0');  -- kann vllt kürzer sein und dann bei Port map erweitern?
+			res <= (others => '0');
 			addra_rom <= (others => '0');
 			addrb_rom <= (others => '0');
-			cnt := 0;
 		elsif rising_edge(clk) then
 				case stwrk_state is
 					when SPIN =>
@@ -214,13 +211,12 @@ BEGIN
 							stwrk_state <= INCR;
 						end if;
 					when INCR =>
+					
 						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
 						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
 						en_add <= '1';
-						cnt := cnt+1;
-						if cnt = N then
+						if addra_rom(3 DOWNTO 0) = "1111" then
 							en_rom <= '0';
-							cnt := 0;
 							stwrk_state <= NOP;
 						end if;
 						
@@ -233,7 +229,6 @@ BEGIN
 					when FIN =>
 					
 							res <= add_res(15 DOWNTO 0);
-							--done <= '1';
 							stwrk_state <= SPIN;
 						
 				end case;
