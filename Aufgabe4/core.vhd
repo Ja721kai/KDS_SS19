@@ -53,7 +53,7 @@ ARCHITECTURE structure OF core IS
 	END COMPONENT;
 	
 	-- state machine for outer loop and scalar multiplication
-	type TState IS (SPIN, INCR, NOP);
+	type TState IS (SPIN, INCR);
 	SIGNAL stwrk_state: TState := SPIN;
 	
 	-- RAM
@@ -128,62 +128,50 @@ BEGIN
 	scalar_multiplication: PROCESS(rst, clk)
 	BEGIN
 		if rst = RSTDEF then
-			stwrk_state <= SPIN;
+			rdy <= '0';
 			en_add <= '0';
 			res <= (others => '0');
-			rdy <= '0';
 			addra_rom <= (others => '0');
 			addrb_rom <= (others => '0');
-			counter_ram <= (others => '0');
+			counter_ram <= (others => '1');
 			counter_rom <= (others => '0');
+			stwrk_state <= SPIN;
 		elsif rising_edge(clk) then
-				case stwrk_state is
-					when SPIN =>
-						if strt = '1' then
-							addra_rom <= (others => '0');
-							addrb_rom <= "0100000000";
-							stwrk_state <= INCR;
-						end if;
-						
-					when INCR =>
+			case stwrk_state is
+				when SPIN =>
+					if strt = '1' then
+						addra_rom <= (others => '0');
+						addrb_rom <= "0100000000";
+						stwrk_state <= INCR;
+					end if;
 					
-						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
-						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
-						en_add <= '1';
-						
-						if addra_rom(3 DOWNTO 0) = "0010" then
-						
-							stwrk_state <= NOP;
-							
-						end if;
-						
-					when NOP =>
-						
-						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
-						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
-						
-						if addra_rom(3 DOWNTO 0) = "1110" then
-							counter_rom <= counter_rom + '1';
-						end if;
+				when INCR =>
+					addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
+					addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
+					en_add <= '1';
+					
+					if addra_rom(3 DOWNTO 0) = "1110" then
+						counter_rom <= counter_rom + '1';
+					end if;
 
-						if addra_rom(3 DOWNTO 0) = "1111" then
-							addra_rom <= "00" & counter_rom(7 DOWNTO 4) & "0000";
-							addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
+					if addra_rom(3 DOWNTO 0) = "1111" then
+						addra_rom <= "00" & counter_rom(7 DOWNTO 4) & "0000";
+						addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
+					end if;
+					
+					if addra_rom(3 DOWNTO 0) = "0001" then
+						res <= add_res(15 DOWNTO 0);
+						if counter_rom = "100000000" then
+							rdy <= '1';
+							stwrk_state <= SPIN;
 						end if;
-						
-						if addra_rom(3 DOWNTO 0) = "0001" then
-							res <= add_res(15 DOWNTO 0);
-							if counter_rom = "100000000" then
-								rdy <= '1';
-								stwrk_state <= SPIN;
-							end if;
-						end if;
-						
-						if addra_rom(3 DOWNTO 0) = "0010" then
-							counter_ram <= counter_ram + '1';
-						end if;
-						
-				end case;
+					end if;
+					
+					if addra_rom(3 DOWNTO 0) = "0010" then
+						counter_ram <= counter_ram + '1';
+					end if;
+					
+			end case;
 		end if;
 	END PROCESS;
 
