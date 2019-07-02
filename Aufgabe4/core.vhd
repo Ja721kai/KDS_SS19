@@ -156,23 +156,10 @@ BEGIN
 					
 				when INCR =>
 				
-					start <= '1';
-					lp_state <= FIN;
+					lp_state <= NOP;
 					en_write <= '0';
 					en_ram <= '0';
 					counter_ram <= counter_ram + '1';
-					if (counter_rom_b + '1') = Z then  -- Matrix B letzte Spalte?
-						counter_rom_b <= (others => '0');
-						if (counter_rom_a + '1') = Z then  -- 256 bereits ausgerechnet
-							start <= '0';
-							rdy <= '1';
-							lp_state <= SPIN;
-						else										
-							counter_rom_a <= counter_rom_a + '1';  -- nächste Zeile in Matrix A
-						end if;
-				   else
-						counter_rom_b <= counter_rom_b + '1';
-					end if;
 				
 				when NOP =>
 					start <= '0';
@@ -180,11 +167,23 @@ BEGIN
 						lp_state <= INCR;
 						en_write <= '1';
 						en_ram <= '1';
+						start <= '1';
+						if (counter_rom_b + '1') = Z then  -- Matrix B letzte Spalte?
+							counter_rom_b <= (others => '0');
+							if (counter_rom_a + '1') = Z then  -- 256 bereits ausgerechnet
+								start <= '0';
+								rdy <= '1';
+								lp_state <= SPIN;
+							else										
+								counter_rom_a <= counter_rom_a + '1';  -- nächste Zeile in Matrix A
+							end if;
+						else
+							counter_rom_b <= counter_rom_b + '1';
+						end if;
 					end if;
 					
 				when FIN =>
-					start <= '0';
-					lp_state <= NOP;
+					-- do nothing
 			
 			end case;
 		end if;
