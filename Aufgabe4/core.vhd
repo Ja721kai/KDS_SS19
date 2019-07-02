@@ -53,7 +53,7 @@ ARCHITECTURE structure OF core IS
 	END COMPONENT;
 	
 	-- state machine for outer loop and scalar multiplication
-	type TState IS (SPIN, INCR, NOP, FIN, WRBACK);  
+	type TState IS (SPIN, INCR, NOP, FIN);
 	SIGNAL stwrk_state: TState := SPIN;
 	SIGNAL lp_state: TState := SPIN;
 	
@@ -63,7 +63,7 @@ ARCHITECTURE structure OF core IS
 	SIGNAL counter_ram: std_logic_vector(9 DOWNTO 0); -- address to write into RAM
 	SIGNAL en_write: std_logic;							  -- write enable
 	SIGNAL en_ram: std_logic;								  -- enable Port A
-	-- no read enable for RAM, read enable is set to '1' (Port B)/ '0' (Port A) permanently
+	-- no read enable for RAM Port B, read enable is set to '1' (Port B)
 	
 	-- ROM
 	SIGNAL addra_rom: std_logic_VECTOR(9 DOWNTO 0);     -- read from ROM 0x0000 to 0x00FF
@@ -80,12 +80,13 @@ ARCHITECTURE structure OF core IS
 	SIGNAL add_res: std_logic_vector(43 DOWNTO 0);  -- holds accumulated value of scalar multiplication
 	 
 	-- scalar multiplication and outer loop
-	SIGNAL res: std_logic_vector(43 DOWNTO 0);  				-- holds addition result of scalar multiplication
-	SIGNAL counter_rom_a: std_logic_vector(9 DOWNTO 0);   -- index from 0 to 15 for Matrix A
-	SIGNAL counter_rom_b: std_logic_vector(9 DOWNTO 0);   -- index from 0 to 15 for Matrix B
+	SIGNAL res: std_logic_vector(15 DOWNTO 0);  				-- holds addition result of scalar multiplication
+	SIGNAL counter_rom_a: std_logic_vector(3 DOWNTO 0);   -- index from 0 to 15 for Matrix A
+	SIGNAL counter_rom_b: std_logic_vector(3 DOWNTO 0);   -- index from 0 to 15 for Matrix B
 	SIGNAL start: std_logic;										-- handshake signal for scalar multiplication
 	SIGNAL done: std_logic;											-- handshake signal for outer loop
 	constant N: natural := 16;										-- matrix size
+	constant Z: natural := 0;
 	
 	
 
@@ -95,7 +96,7 @@ BEGIN
 	PORT MAP(
 	  douta 	=> OPEN,
 	  doutb	=> doutb_ram,
-	  dina	=> res(15 DOWNTO 0),
+	  dina	=> res,
 	  addra	=> counter_ram,
 	  addrb	=> addrb_ram,
 	  clka	=> clk,
@@ -129,23 +130,26 @@ BEGIN
 		P => multres
 	);
 	
+	-- display numbers on 7 segment display
+	addrb_ram <= "00" & sw;
+	dout <= doutb_ram;
 	
 	outerloop: PROCESS(rst, clk)
 	BEGIN
 		if rst = RSTDEF then
 			start <= '0';
 			rdy <= '0';
-			--counter_ram <= (others => '0');
 			counter_rom_a <= (others => '0');     -- SINGLE PORT ADDRESS ROM A
-			counter_rom_b <= "0100000000";      -- SINGLE PORT ADDRESS ROM B
+			counter_rom_b <= (others => '0');      -- SINGLE PORT ADDRESS ROM B
+			counter_ram <= (others => '0');
+			en_ram <= '0';
+			en_write <= '0';
 			lp_state <= SPIN;
 		elsif rising_edge(clk) then
 			case lp_state is
 				when SPIN =>
+				
 					if strt = '1' then	
-						--counter_ram <= (others => '0');
-						counter_rom_a <= (others => '0');     -- SINGLE PORT ROM A
-						counter_rom_b <= "0100000000";      -- SINGLE PORT ROM B
 						start <= '1';
 						lp_state <= NOP;
 					end if;
@@ -154,12 +158,12 @@ BEGIN
 				
 					start <= '1';
 					lp_state <= FIN;
-					--en_write <= '0';
-					--en_ram <= '0';
-					--counter_ram <= counter_ram + '1';
-					if counter_rom_b(7 DOWNTO 0) + '1' = N then  -- Matrix B letzte Spalte?
-						counter_rom_b(7 DOWNTO 0) <= (others => '0');
-						if counter_rom_a + '1' = N then  -- 256 bereits ausgerechnet
+					en_write <= '0';
+					en_ram <= '0';
+					counter_ram <= counter_ram + '1';
+					if (counter_rom_b + '1') = Z then  -- Matrix B letzte Spalte?
+						counter_rom_b <= (others => '0');
+						if (counter_rom_a + '1') = Z then  -- 256 bereits ausgerechnet
 							start <= '0';
 							rdy <= '1';
 							lp_state <= SPIN;
@@ -168,26 +172,19 @@ BEGIN
 						end if;
 				   else
 						counter_rom_b <= counter_rom_b + '1';
-						
 					end if;
 				
 				when NOP =>
 					start <= '0';
 					if done = '1' then
-						--en_write <= '1';
-						--en_ram <= '1';
 						lp_state <= INCR;
+						en_write <= '1';
+						en_ram <= '1';
 					end if;
 					
-				when FIN =>  -- warte bis done = 0
-				start <= '0';
-					if done = '0' then
-						lp_state <= NOP;
-					end if;
-					
-				when WRBACK =>
-					
-					-- do nothing
+				when FIN =>
+					start <= '0';
+					lp_state <= NOP;
 			
 			end case;
 		end if;
@@ -199,33 +196,26 @@ BEGIN
 		if rst = RSTDEF then
 			stwrk_state <= SPIN;
 			en_rom <= '0';
-			en_write <= '0';
 			en_add <= '0';
 			done <= '0';
-			res <= (others => '0');
-			counter_ram <= (others => '0');
+			res <= (others => '0');  -- kürzer initialisieren und andere variable nutzen für add_res?
+			--counter_ram <= (others => '0');  -- kann vllt kürzer sein und dann bei Port map erweitern?
 			addra_rom <= (others => '0');
 			addrb_rom <= (others => '0');
 			cnt := 0;
 		elsif rising_edge(clk) then
 				case stwrk_state is
 					when SPIN =>
-						en_rom <= '0';
-						en_add <= '0';
-						done <= '0';
 						if start = '1' then
-							--res <= (others => '0');
 							en_rom <= '1';
-							--counter_ram <= (others => '0');
-							--en_add <= '1';
-							addra_rom <= "00" & counter_rom_a(3 DOWNTO 0) & "0000";
-							addrb_rom <= counter_rom_b;
+							addra_rom <= "00" & counter_rom_a & "0000";
+							addrb_rom <= "010000" & counter_rom_b;
 							done <= '0';
 							stwrk_state <= INCR;
 						end if;
 					when INCR =>
-						addra_rom <= addra_rom + "0000000001";  -- + 1, nächste Spalte in A
-						addrb_rom <= addrb_rom + "0000010000";  -- + N, nächste Zeile in B
+						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
+						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
 						en_add <= '1';
 						cnt := cnt+1;
 						if cnt = N then
@@ -236,33 +226,20 @@ BEGIN
 						
 					when NOP =>
 					
-						stwrk_state <= FIN;
-						en_add <= '0';
-
+							stwrk_state <= FIN;
+							en_add <= '0';
+							done <= '1';
+						
 					when FIN =>
 					
-						res <= add_res;
-						en_write <= '1';
-						en_ram <= '1';
-						stwrk_state <= WRBACK;
-						
-					when WRBACK =>
-						en_write <= '0';
-						en_ram <= '0';
-						counter_ram <= counter_ram + '1';
-						stwrk_state <= SPIN;
-						done <= '1';
+							res <= add_res(15 DOWNTO 0);
+							--done <= '1';
+							stwrk_state <= SPIN;
 						
 				end case;
 		end if;
 	END PROCESS;
-	
 
-	addrb_ram <= "00" & sw;
-	dout <= doutb_ram;
-
-	
-	
 	addierer_akk: PROCESS(rst, clk)
 	BEGIN
 		if rst = RSTDEF then
