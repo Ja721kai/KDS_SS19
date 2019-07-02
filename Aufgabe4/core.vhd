@@ -81,8 +81,8 @@ ARCHITECTURE structure OF core IS
 	 
 	-- scalar multiplication and outer loop
 	SIGNAL res: std_logic_vector(15 DOWNTO 0);  				-- holds addition result of scalar multiplication
-	SIGNAL counter_rom: std_logic_vector(7 DOWNTO 0); 		-- 7-4: A, 3-0:B, ROM Port start addresses
-	SIGNAL start: std_logic;										-- handshake signal for scalar multiplication
+	SIGNAL counter_rom: std_logic_vector(8 DOWNTO 0); 		-- 7-4: A, 3-0:B, ROM Port start addresses
+	SIGNAL start: std_logic; -- TODO; Start raus um 12 cnt runter zu gehen?
 	SIGNAL done: std_logic;											-- handshake signal for outer loop
 	constant N: natural := 16;										-- matrix size
 	constant Z: natural := 0;
@@ -101,9 +101,9 @@ BEGIN
 	  addrb	=> addrb_ram,
 	  clka	=> clk,
 	  clkb	=> clk,
-	  ena		=> en_ram,
+	  ena		=> '1',
 	  enb		=> '1',
-	  wea		=> en_write
+	  wea		=> '1'
 	);
 	
 	rb2: rom_block
@@ -114,8 +114,8 @@ BEGIN
 	  addrb	=> addrb_rom,
 	  clka	=> clk,
 	  clkb	=> clk,
-	  ena		=> en_rom,
-	  enb		=> en_rom
+	  ena		=> '1',
+	  enb		=> '1'
 	);
 	
 	-- Vektorgröße erhöhen
@@ -133,97 +133,73 @@ BEGIN
 	-- display numbers on 7 segment display
 	addrb_ram <= "00" & sw;
 	dout <= doutb_ram;
-	
-	outerloop: PROCESS(rst, clk)
-	BEGIN
-		if rst = RSTDEF then
-			start <= '0';
-			rdy <= '0';
-			counter_rom <= (others => '0');
-			counter_ram <= (others => '0');
-			en_ram <= '0';
-			en_write <= '0';
-			lp_state <= SPIN;
-		elsif rising_edge(clk) then
-			case lp_state is
-				when SPIN =>
 				
-					if strt = '1' then	
-						start <= '1';
-						lp_state <= NOP;
-					end if;
-					
-				when INCR =>
-				
-					lp_state <= NOP;
-					en_write <= '0';
-					en_ram <= '0';
-					counter_ram <= counter_ram + '1';
-				
-				when NOP =>
-					start <= '0';
-					if done = '1' then
-						lp_state <= INCR;
-						en_write <= '1';
-						en_ram <= '1';
-						start <= '1';
-						if counter_rom = "11111111" then  -- letzter Wert?
-							start <= '0';
-							rdy <= '1';
-							lp_state <= SPIN;
-						else
-							counter_rom <= counter_rom + '1';
-						end if;
-					end if;
-					
-				when FIN =>
-					-- do nothing
-			
-			end case;
-		end if;
-	END PROCESS;
-			 
+
 	scalar_multiplication: PROCESS(rst, clk)
 	BEGIN
 		if rst = RSTDEF then
 			stwrk_state <= SPIN;
-			en_rom <= '0';
 			en_add <= '0';
-			done <= '0';
 			res <= (others => '0');
+			rdy <= '0';
 			addra_rom <= (others => '0');
 			addrb_rom <= (others => '0');
+			counter_ram <= (others => '0');
+			counter_rom <= (others => '0');
 		elsif rising_edge(clk) then
 				case stwrk_state is
 					when SPIN =>
-						if start = '1' then
-							en_rom <= '1';
-							addra_rom(7 DOWNTO 0) <= counter_rom(7 DOWNTO 4) & "0000";
-							addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
-							done <= '0';
+						if strt = '1' then
+							--en_rom <= '1';
+							--en_write <= '1';
+							--en_ram <= '1';
+							addra_rom <= (others => '0');
+							addrb_rom <= "0100000000";
 							stwrk_state <= INCR;
 						end if;
+						
 					when INCR =>
 					
 						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
 						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
 						en_add <= '1';
-						if addra_rom(3 DOWNTO 0) = "1111" then
-							en_rom <= '0';
+						
+						if addra_rom(3 DOWNTO 0) = "0010" then
+						
 							stwrk_state <= NOP;
-							addra_rom <= addra_rom;
+							
 						end if;
 						
 					when NOP =>
-					
-							stwrk_state <= FIN;
-							en_add <= '0';
-							done <= '1';
+						
+						addra_rom <= addra_rom + '1';  -- + 1, nächste Spalte in A
+						addrb_rom <= addrb_rom + N;  -- + N, nächste Zeile in B
+						
+						if addra_rom(3 DOWNTO 0) = "1110" then
+							counter_rom <= counter_rom + '1';
+						end if;
+
+						if addra_rom(3 DOWNTO 0) = "1111" then
+							--stwrk_state <= NOP;
+							
+							addra_rom <= "00" & counter_rom(7 DOWNTO 4) & "0000";
+							addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
+						end if;
+						
+						if addra_rom(3 DOWNTO 0) = "0001" then
+							res <= add_res(15 DOWNTO 0);
+							if counter_rom = "100000000" then
+								rdy <= '1';
+								stwrk_state <= FIN;
+							end if;
+						end if;
+						
+						if addra_rom(3 DOWNTO 0) = "0010" then
+							counter_ram <= counter_ram + '1';
+						end if;
 						
 					when FIN =>
-					
-							res <= add_res(15 DOWNTO 0);
-							stwrk_state <= SPIN;
+						-- do nothing
 						
 				end case;
 		end if;
@@ -234,10 +210,10 @@ BEGIN
 		if rst = RSTDEF then
 			add_res <= (others => '0');
 		elsif rising_edge(clk) then
-			if en_add = '1' then
+			if addra_rom(3 DOWNTO 0) = "0001" then
+				add_res <= ("00000000" & multres);
+			elsif en_add = '1' then
 				add_res <= add_res + ("00000000" & multres);
-			else
-				add_res <= (others => '0');
 			end if;
 		end if;
 	END PROCESS;
