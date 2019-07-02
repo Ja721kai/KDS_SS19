@@ -53,16 +53,13 @@ ARCHITECTURE structure OF core IS
 	END COMPONENT;
 	
 	-- state machine for outer loop and scalar multiplication
-	type TState IS (SPIN, INCR, NOP, FIN);
+	type TState IS (SPIN, INCR, NOP);
 	SIGNAL stwrk_state: TState := SPIN;
-	SIGNAL lp_state: TState := SPIN;
 	
 	-- RAM
    SIGNAL addrb_ram: std_logic_VECTOR(9 DOWNTO 0);   -- address to read out from
 	SIGNAL doutb_ram: std_logic_VECTOR(15 DOWNTO 0);  -- register to hold read value
 	SIGNAL counter_ram: std_logic_vector(9 DOWNTO 0); -- address to write into RAM
-	SIGNAL en_write: std_logic;							  -- write enable
-	SIGNAL en_ram: std_logic;								  -- enable Port A
 	-- no read enable for RAM Port B, read enable is set to '1' (Port B)
 	
 	-- ROM
@@ -72,7 +69,6 @@ ARCHITECTURE structure OF core IS
 	SIGNAL doutb_rom: std_logic_VECTOR(15 DOWNTO 0);    -- holds value from read on Matrix B
 	SIGNAL extdouta_rom: std_logic_VECTOR(17 DOWNTO 0); -- extended value (16 to 18 bits)
 	SIGNAL extdoutb_rom: std_logic_VECTOR(17 DOWNTO 0); -- extended value (16 to 18 bits)
-   SIGNAL en_rom:   std_logic;								 -- read enable
 	
 	-- akkumulator variables
 	SIGNAL en_add:   std_logic;						   -- add enable
@@ -82,14 +78,8 @@ ARCHITECTURE structure OF core IS
 	-- scalar multiplication and outer loop
 	SIGNAL res: std_logic_vector(15 DOWNTO 0);  				-- holds addition result of scalar multiplication
 	SIGNAL counter_rom: std_logic_vector(8 DOWNTO 0); 		-- 7-4: A, 3-0:B, ROM Port start addresses
-	SIGNAL start: std_logic; -- TODO; Start raus um 12 cnt runter zu gehen?
-	SIGNAL done: std_logic;											-- handshake signal for outer loop
-	constant N: natural := 16;										-- matrix size
-	constant Z: natural := 0;
-	constant O: natural := 1;
+	constant N: natural := 16;
 	
-	
-
 BEGIN
 
 	rb: ram_block
@@ -150,9 +140,6 @@ BEGIN
 				case stwrk_state is
 					when SPIN =>
 						if strt = '1' then
-							--en_rom <= '1';
-							--en_write <= '1';
-							--en_ram <= '1';
 							addra_rom <= (others => '0');
 							addrb_rom <= "0100000000";
 							stwrk_state <= INCR;
@@ -180,8 +167,6 @@ BEGIN
 						end if;
 
 						if addra_rom(3 DOWNTO 0) = "1111" then
-							--stwrk_state <= NOP;
-							
 							addra_rom <= "00" & counter_rom(7 DOWNTO 4) & "0000";
 							addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
 						end if;
@@ -190,16 +175,13 @@ BEGIN
 							res <= add_res(15 DOWNTO 0);
 							if counter_rom = "100000000" then
 								rdy <= '1';
-								stwrk_state <= FIN;
+								stwrk_state <= SPIN;
 							end if;
 						end if;
 						
 						if addra_rom(3 DOWNTO 0) = "0010" then
 							counter_ram <= counter_ram + '1';
 						end if;
-						
-					when FIN =>
-						-- do nothing
 						
 				end case;
 		end if;
