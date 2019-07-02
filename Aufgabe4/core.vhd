@@ -81,12 +81,12 @@ ARCHITECTURE structure OF core IS
 	 
 	-- scalar multiplication and outer loop
 	SIGNAL res: std_logic_vector(15 DOWNTO 0);  				-- holds addition result of scalar multiplication
-	SIGNAL counter_rom_a: std_logic_vector(3 DOWNTO 0);   -- index from 0 to 15 for Matrix A
-	SIGNAL counter_rom_b: std_logic_vector(3 DOWNTO 0);   -- index from 0 to 15 for Matrix B
+	SIGNAL counter_rom: std_logic_vector(7 DOWNTO 0); 		-- 7-4: A, 3-0:B, ROM Port start addresses
 	SIGNAL start: std_logic;										-- handshake signal for scalar multiplication
 	SIGNAL done: std_logic;											-- handshake signal for outer loop
 	constant N: natural := 16;										-- matrix size
 	constant Z: natural := 0;
+	constant O: natural := 1;
 	
 	
 
@@ -139,8 +139,7 @@ BEGIN
 		if rst = RSTDEF then
 			start <= '0';
 			rdy <= '0';
-			counter_rom_a <= (others => '0');     -- SINGLE PORT ADDRESS ROM A
-			counter_rom_b <= (others => '0');      -- SINGLE PORT ADDRESS ROM B
+			counter_rom <= (others => '0');
 			counter_ram <= (others => '0');
 			en_ram <= '0';
 			en_write <= '0';
@@ -168,17 +167,12 @@ BEGIN
 						en_write <= '1';
 						en_ram <= '1';
 						start <= '1';
-						if (counter_rom_b + '1') = Z then  -- Matrix B letzte Spalte?
-							counter_rom_b <= (others => '0');
-							if (counter_rom_a + '1') = Z then  -- 256 bereits ausgerechnet
-								start <= '0';
-								rdy <= '1';
-								lp_state <= SPIN;
-							else										
-								counter_rom_a <= counter_rom_a + '1';  -- nächste Zeile in Matrix A
-							end if;
+						if counter_rom = "11111111" then  -- letzter Wert?
+							start <= '0';
+							rdy <= '1';
+							lp_state <= SPIN;
 						else
-							counter_rom_b <= counter_rom_b + '1';
+							counter_rom <= counter_rom + '1';
 						end if;
 					end if;
 					
@@ -204,8 +198,8 @@ BEGIN
 					when SPIN =>
 						if start = '1' then
 							en_rom <= '1';
-							addra_rom <= "00" & counter_rom_a & "0000";
-							addrb_rom <= "010000" & counter_rom_b;
+							addra_rom(7 DOWNTO 0) <= counter_rom(7 DOWNTO 4) & "0000";
+							addrb_rom <= "010000" & counter_rom(3 DOWNTO 0);
 							done <= '0';
 							stwrk_state <= INCR;
 						end if;
@@ -217,6 +211,7 @@ BEGIN
 						if addra_rom(3 DOWNTO 0) = "1111" then
 							en_rom <= '0';
 							stwrk_state <= NOP;
+							addra_rom <= addra_rom;
 						end if;
 						
 					when NOP =>
