@@ -1,2 +1,2 @@
 # KDS_SS19
-KDS Übung 2019
+Komponenten digitaler Systeme HTWG, Sommersemester 2019
